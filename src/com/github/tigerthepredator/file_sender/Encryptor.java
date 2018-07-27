@@ -22,17 +22,21 @@ import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
 
 public class Encryptor {
+	// Generates a public/private key pair using RSA encryption
 	public static KeyPair generateKeyPair() {
 		try {
+			// Generate the keypair
 			KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
 			keyPairGenerator.initialize(2048);
 			KeyPair keyPair = keyPairGenerator.generateKeyPair();
 
+			// Save the two keys in the folder that the user types in
 			String loc = Terminal.ask("Enter the folder where you would like to save your keys: ");
 			saveKeyPair(loc, keyPair);
 			Terminal.confirm(
 					"The keys have been saved successfully. Make sure that you never tell anyone your private key.");
 
+			// Return the keypair
 			return keyPair;
 		} catch (NoSuchAlgorithmException | IOException e) {
 			Terminal.error(e.getMessage());
@@ -41,28 +45,39 @@ public class Encryptor {
 		return null;
 	}
 
+	// Convert the key to base64 string format
+	// Code copied from
+	// https://self-learning-java-tutorial.blogspot.com/2015/07/convert-string-to-secret-key-in-java.html
 	public static String keyToString(Key key) {
 		byte[] encoded = key.getEncoded();
 		String encodedKey = Base64.getEncoder().encodeToString(encoded);
 		return encodedKey;
 	}
 
+	// Convert base64 string to a key
+	// Code copied from
+	// https://self-learning-java-tutorial.blogspot.com/2015/07/convert-string-to-secret-key-in-java.html
 	public static Key stringToKey(String s) {
 		byte[] decodedKey = Base64.getDecoder().decode(s);
-		javax.crypto.SecretKey secretKey = new javax.crypto.spec.SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
+		javax.crypto.SecretKey secretKey = new javax.crypto.spec.SecretKeySpec(decodedKey, 0, decodedKey.length, "RSA");
 		return secretKey;
 	}
 
+	// Save the key pair in two files
+	// Code copied from https://snipplr.com/view/18368/
 	private static void saveKeyPair(String path, KeyPair keyPair) throws IOException {
+		// Get the public key and private key
 		PrivateKey privateKey = keyPair.getPrivate();
 		PublicKey publicKey = keyPair.getPublic();
 
+		// Save the public key
 		X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(publicKey.getEncoded());
 		File publicKeyFile = new File(path + "/public.key");
 		FileOutputStream fos = new FileOutputStream(publicKeyFile);
 		fos.write(x509EncodedKeySpec.getEncoded());
 		fos.close();
 
+		// Save the private key
 		PKCS8EncodedKeySpec pkcs8EncodedKeySpec = new PKCS8EncodedKeySpec(privateKey.getEncoded());
 		File privateKeyFile = new File(path + "/private.key");
 		fos = new FileOutputStream(privateKeyFile);
@@ -70,30 +85,42 @@ public class Encryptor {
 		fos.close();
 	}
 
-	public KeyPair loadKeyPair(String path, String algorithm)
+	// Load previously saved keys
+	// TODO: Actually implement this in the program
+	// Code copied from https://snipplr.com/view/18368/
+	public KeyPair loadKeyPair(String path)
 			throws IOException, NoSuchAlgorithmException, java.security.spec.InvalidKeySpecException {
+		// Get the public key in byte[] format
 		File filePublicKey = new File(path + "/public.key");
 		FileInputStream fis = new FileInputStream(path + "/public.key");
 		byte[] encodedPublicKey = new byte[(int) filePublicKey.length()];
 		fis.read(encodedPublicKey);
 		fis.close();
 
+		// Get the private key in byte[] format
 		File filePrivateKey = new File(path + "/private.key");
 		fis = new FileInputStream(path + "/private.key");
 		byte[] encodedPrivateKey = new byte[(int) filePrivateKey.length()];
 		fis.read(encodedPrivateKey);
 		fis.close();
 
-		KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
+		// Create a key factory
+		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+		
+		// Get the public key
 		X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(encodedPublicKey);
 		PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
 
+		// Get the private key
 		PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(encodedPrivateKey);
 		PrivateKey privateKey = keyFactory.generatePrivate(privateKeySpec);
 
+		// Return the two keys
 		return new KeyPair(publicKey, privateKey);
 	}
 
+	// Encrypts a string using the given public key
+	// Code copied from http://niels.nu/blog/2016/java-rsa.html
 	public static String encrypt(String message, Key publicKey) {
 		try {
 			Cipher encryptCipher = Cipher.getInstance("RSA");
@@ -108,6 +135,8 @@ public class Encryptor {
 		return null;
 	}
 
+	// Decrypts a string using the given private key
+	// Code copied from http://niels.nu/blog/2016/java-rsa.html
 	public static String decrypt(String message, Key privateKey) {
 		try {
 			byte[] bytes = Base64.getDecoder().decode(message);
@@ -124,6 +153,8 @@ public class Encryptor {
 		return null;
 	}
 
+	// Generates a random string
+	// Code copied from https://dzone.com/articles/generate-random-alpha-numeric
 	public static String randString(int count) {
 		String ALPHA_NUMERIC_STRING = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 		StringBuilder builder = new StringBuilder();
@@ -136,6 +167,8 @@ public class Encryptor {
 		return builder.toString();
 	}
 
+	// Convert a byte[] to a string in hex format
+	// Code copied from http://www.baeldung.com/sha-256-hashing-java
 	public static String bytesToHex(byte[] hash) {
 		StringBuffer hexString = new StringBuffer();
 		for (int i = 0; i < hash.length; i++) {
