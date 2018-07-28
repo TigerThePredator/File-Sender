@@ -19,7 +19,10 @@ import java.util.Base64;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 public class Encryptor {
 	// Generates a public/private key pair using RSA encryption
@@ -39,28 +42,31 @@ public class Encryptor {
 			// Return the keypair
 			return keyPair;
 		} catch (NoSuchAlgorithmException | IOException e) {
-			Terminal.error(e.getMessage());
+			Terminal.error(e);
 		}
 
 		return null;
 	}
 
 	// Convert the key to base64 string format
-	// Code copied from
-	// https://self-learning-java-tutorial.blogspot.com/2015/07/convert-string-to-secret-key-in-java.html
 	public static String keyToString(Key key) {
-		byte[] encoded = key.getEncoded();
-		String encodedKey = Base64.getEncoder().encodeToString(encoded);
-		return encodedKey;
+		X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(key.getEncoded());
+		return Base64.getEncoder().encodeToString(x509EncodedKeySpec.getEncoded());
 	}
 
 	// Convert base64 string to a key
-	// Code copied from
-	// https://self-learning-java-tutorial.blogspot.com/2015/07/convert-string-to-secret-key-in-java.html
 	public static Key stringToKey(String s) {
-		byte[] decodedKey = Base64.getDecoder().decode(s);
-		javax.crypto.SecretKey secretKey = new javax.crypto.spec.SecretKeySpec(decodedKey, 0, decodedKey.length, "RSA");
-		return secretKey;
+		try {
+			byte[] decodedKey = Base64.getDecoder().decode(s);
+			KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+			X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(decodedKey);
+			PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
+			return publicKey;
+		} catch (Exception e) {
+			Terminal.error("Error while processing the received keys.");
+			Terminal.error(e);
+			return null;
+		}
 	}
 
 	// Save the key pair in two files
@@ -106,7 +112,7 @@ public class Encryptor {
 
 		// Create a key factory
 		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-		
+
 		// Get the public key
 		X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(encodedPublicKey);
 		PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
@@ -119,36 +125,72 @@ public class Encryptor {
 		return new KeyPair(publicKey, privateKey);
 	}
 
-	// Encrypts a string using the given public key
-	// Code copied from http://niels.nu/blog/2016/java-rsa.html
+	// Encrypts a string using the given RSA public key
+	// Code copied from Waleed Abdalmajeed's post in https://stackoverflow.com/questions/10007147/getting-a-illegalblocksizeexception-data-must-not-be-longer-than-256-bytes-when
 	public static String encrypt(String message, Key publicKey) {
 		try {
-			Cipher encryptCipher = Cipher.getInstance("RSA");
-			encryptCipher.init(1, publicKey);
-			byte[] cipherText = encryptCipher.doFinal(message.getBytes("UTF_8"));
-			return Base64.getEncoder().encodeToString(cipherText);
+			// They way that this works is that first we generate a random AES key
+			// Then we encrypt the message with AES. Then we encrypt the AES key
+			// by using RSA. Then we send both AES(message) and RSA(AES key) to
+			// the other computer. After that, the receiving computer will have to
+			// first decrypt the AES key using the RSA private key and then use that
+			// key to decrypt the message.
+
+			// Generate symmetric key
+			KeyGenerator generator = KeyGenerator.getInstance("AES");
+			generator.init(128);
+			SecretKey secKey = generator.generateKey();
+
+			// Encrypt message using AES
+			Cipher aesCipher = Cipher.getInstance("AES");
+			aesCipher.init(Cipher.ENCRYPT_MODE, secKey);
+			byte[] byteCipherText = aesCipher.doFinal(message.getBytes());
+
+			// Encrypt AES key using RSA
+			Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+			cipher.init(Cipher.PUBLIC_KEY, publicKey);
+			byte[] encryptedKey = cipher.doFinal(secKey.getEncoded());
+
+			// Return RSA(AES Key) + AES(message) as a string
+			return new String(encryptedKey) + new String(byteCipherText);
 		} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
-				| javax.crypto.IllegalBlockSizeException | BadPaddingException | UnsupportedEncodingException e) {
+				| javax.crypto.IllegalBlockSizeException | BadPaddingException e) {
 			Terminal.error("Error while encrypting message");
-			Terminal.error(e.getMessage());
+			Terminal.error(e);
 		}
 		return null;
 	}
 
 	// Decrypts a string using the given private key
-	// Code copied from http://niels.nu/blog/2016/java-rsa.html
+	// Code copied from Waleed Abdalmajeed's post in https://stackoverflow.com/questions/10007147/getting-a-illegalblocksizeexception-data-must-not-be-longer-than-256-bytes-when
 	public static String decrypt(String message, Key privateKey) {
 		try {
-			byte[] bytes = Base64.getDecoder().decode(message);
-
-			Cipher decriptCipher = Cipher.getInstance("RSA");
-			decriptCipher.init(2, privateKey);
-
-			return new String(decriptCipher.doFinal(bytes), "UTF_8");
-		} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | UnsupportedEncodingException
+			// They way that this works is that first we generate a random AES key
+			// Then we encrypt the message with AES. Then we encrypt the AES key
+			// by using RSA. Then we send both AES(message) and RSA(AES key) to
+			// the other computer. After that, the receiving computer will have to
+			// first decrypt the AES key using the RSA private key and then use that
+			// key to decrypt the message.
+			
+			// Split the AES key from the rest of the message (AES key should have length of 256)
+			String aesKey = message.substring(0, 256); // TODO: Split by 256 bytes
+			message = message.substring(256);
+			
+			// Decrypt the AES key using RSA private key
+			Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+			cipher.init(Cipher.PRIVATE_KEY, privateKey);
+			byte[] decryptedKey = cipher.doFinal(aesKey.getBytes());
+			SecretKey originalKey = new SecretKeySpec(decryptedKey , 0, decryptedKey .length, "AES");
+			
+			// Decrypt message using decrypted AES key
+			Cipher aesCipher = Cipher.getInstance("AES");
+			aesCipher.init(Cipher.DECRYPT_MODE, originalKey);
+			byte[] bytePlainText = aesCipher.doFinal(message.getBytes());
+			return new String(bytePlainText);
+		} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException
 				| javax.crypto.IllegalBlockSizeException | BadPaddingException e) {
 			Terminal.error("Error while decrypting received message.");
-			Terminal.error(e.getMessage());
+			Terminal.error(e);
 		}
 		return null;
 	}

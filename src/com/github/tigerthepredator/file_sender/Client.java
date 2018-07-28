@@ -16,7 +16,13 @@ public class Client {
 
 	// Used to send commands to the server
 	public void commandLine() {
-
+		// Loop until the client closes the connection
+		boolean exit = false;
+		while (!exit) {
+			// Client should be able to type in a command
+			Terminal.print("> ");
+			String command = Terminal.scanLine();
+		}
 	}
 
 	// Constructor
@@ -35,23 +41,29 @@ public class Client {
 		int port = Integer.parseInt(Terminal.ask("Enter the port number: "));
 
 		// Setup socket and terminal connections
+		Terminal.print("Setting up connection with server...\n");
 		SOCKET = new Socket(ip, port);
 		terminal = new Terminal(SOCKET);
+		Terminal.confirm("Successfully connected to server.");
 
-		// Send and receive the public keys
+		// Send our public key
 		terminal.sendUnencrypted(Encryptor.keyToString(KEYS.getPublic()));
-		String s = terminal.receiveUnencrypted();
-		Terminal.print(s);
-		SERVER_KEY = Encryptor.stringToKey(s);
 
-		// Send the answer to the server's challenge
-		// The server should send a random string as a challenge
-		// The answer to the challenge is SHA256(random string + password)
-		String password = Terminal.ask("Enter the password: ");
-		String challenge = terminal.receive(KEYS.getPrivate()) + password;
-		MessageDigest digest = MessageDigest.getInstance("SHA-256");
-		String encodedhash = Encryptor.bytesToHex(digest.digest(challenge.getBytes(StandardCharsets.UTF_8)));
-		terminal.send(encodedhash, SERVER_KEY);
+		// Receive the server's public key and make sure that it is not null
+		SERVER_KEY = Encryptor.stringToKey(terminal.receiveUnencrypted());
+		if (SERVER_KEY != null) {
+			// Send the answer to the server's challenge
+			// The server should send a random string as a challenge
+			// The answer to the challenge is SHA256(random string + password)
+			String password = Terminal.ask("Enter the password: ");
+			String challenge = terminal.receive(KEYS.getPrivate()) + password;
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			String encodedhash = Encryptor.bytesToHex(digest.digest(challenge.getBytes(StandardCharsets.UTF_8)));
+			terminal.send(encodedhash, SERVER_KEY);
+		} else {
+			Terminal.error("The server did not submit a proper public key. Connection will be closed.");
+			System.exit(1);
+		}
 	}
 
 }

@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.net.Socket;
 import java.security.Key;
 import java.util.Scanner;
@@ -42,6 +44,11 @@ public class Terminal {
 	// Receive an encrypted message from the server
 	public String receive(Key privateKey) {
 		try {
+			// Wait until the stream is ready to be read
+			while (true)
+				if (in.ready())
+					break;
+			
 			return Encryptor.decrypt(in.readLine(), privateKey);
 		} catch (IOException e) {
 			error("Error while receiving message");
@@ -53,6 +60,11 @@ public class Terminal {
 	// Receive an unencrypted message from the server
 	public String receiveUnencrypted() {
 		try {
+			// Wait until the stream is ready to be read
+			while (true)
+				if (in.ready())
+					break;
+			
 			return in.readLine();
 		} catch (IOException e) {
 			error("Error while receiving unencrypted message.");
@@ -63,7 +75,7 @@ public class Terminal {
 
 	// Print a line in white color
 	public static void print(String line) {
-		System.out.println("\033[37m" + line);
+		System.out.print("\033[37m" + line);
 	}
 
 	// Print a line in green color
@@ -74,6 +86,14 @@ public class Terminal {
 	// Print a line in red color
 	public static void error(String line) {
 		System.out.println("\033[31m" + line);
+	}
+	
+	// Print an error in red color
+	public static void error(Exception e) {
+		Writer result = new StringWriter();
+		PrintWriter writer = new PrintWriter(result);
+		e.printStackTrace(writer);
+		System.out.println("\033[31m" + result.toString());
 	}
 
 	// Print a line in blue color
@@ -102,7 +122,7 @@ public class Terminal {
 			out.close();
 		} catch (IOException e) {
 			error("Error while closing streams");
-			error(e.getMessage());
+			error(e);
 		}
 	}
 }
