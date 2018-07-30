@@ -2,20 +2,17 @@ package com.github.tigerthepredator.file_sender;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
-import java.security.Key;
-import java.security.KeyPair;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+import java.util.Random;
 
 public class Server {
 	private final int PORT; // Port that the server resides on
-	private final String PASSWORD; // Password to enter the server
 	private final File FOLDER; // Folder that everyone is supposed to be able to access
-	private final KeyPair KEYS; // The server's public/private key pair
+	private String password; // Password to enter the server. Saved as a SHA256 hash
 
 	// TODO: Store password as a hash
 	// TODO: Add different groups and users, and allow the server admins to give
@@ -33,38 +30,47 @@ public class Server {
 			// Create the client socket and terminal connection
 			Terminal.print("Waiting for connection...\n");
 			Socket clientSocket = serverSocket.accept();
-			Terminal terminal = new Terminal(clientSocket);
+			Streams streams = new Streams(clientSocket);
 			Terminal.confirm("Client connected from " + clientSocket.getInetAddress() + ".");
 
-			// Receive the client's public key
-			Key clientKey = Encryptor.stringToKey(terminal.receiveUnencrypted());
-			if (clientKey != null) { // Make sure that the key is not null
-				// Send the client the server's public key
-				terminal.send(Encryptor.keyToString(KEYS.getPublic()), clientKey);
+			// Conduct a key exchange
+			if (streams.keyExchange()) {
+				Terminal.confirm("Setting up communications with " + clientSocket.getInetAddress() + ".");
 
-				// Develop a challenge for the client
 				// The server will send a random string with length 10 to the client,
-				// and the client should respond with SHA256(random string + password) in order
-				// to start the connection
-				String challenge = Encryptor.randString(10); // Develop random string
-				terminal.send(challenge, clientKey); // Send the challenge string
-				challenge = challenge + PASSWORD; // Append the password to the challenge string
-				MessageDigest digest = MessageDigest.getInstance("SHA-256"); // Create a SHA256 message digest
-				// Set encodedhash = SHA256(random string + password)
-				String encodedhash = Encryptor.bytesToHex(digest.digest(challenge.getBytes(StandardCharsets.UTF_8)));
-				if (terminal.receive(KEYS.getPrivate()) != encodedhash) { // Check if the client sent the correct
-																			// response
-					// Close the connection if the client fails the challenge
-					terminal.send("You have sent an incorrect password. Closing connection", clientKey);
-				} else { // Allow access to the folder if the client passed the challenge
+				// and the client should respond with SHA256(SHA256(random string) +
+				// SHA256(password)) in order to start the connection. This way, neither the
+				// server nor the client will ever transmit the real password
+
+				// Develop a random 10-character string and send it as a challenge
+				String characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+				StringBuilder challengeBuilder = new StringBuilder();
+				Random r = new Random();
+				for (int x = 0; x < 10; x++)
+					challengeBuilder.append(characters.charAt(Math.abs(r.nextInt() % characters.length())));
+				String challenge = challengeBuilder.toString();
+				streams.send(challenge);
+
+				// Develop the correct answer to the challenge
+				MessageDigest digest = MessageDigest.getInstance("SHA-256");
+				String challengeHash = Base64.getEncoder()
+						.encodeToString(digest.digest(Base64.getDecoder().decode(challenge)));
+				String answer = Base64.getEncoder()
+						.encodeToString(digest.digest(Base64.getDecoder().decode(challengeHash + password)));
+
+				// Check if the client sent the correct answer
+				if (answer == streams.receive()) {
+					// Tell the client that they have successfully connected
+					streams.send("Correct.");
+					
 					// Process the client's commands as he sends them
 					File currentFolder = FOLDER;
 					String inputLine;
-					while ((inputLine = terminal.receive(KEYS.getPrivate())) != null) {
+					while ((inputLine = streams.receive()) != null) {
 						// List the files if client sends the "ls" command
 						if (inputLine.startsWith("ls")) {
 							for (String file : currentFolder.list())
-								terminal.send(file + "\n", clientKey);
+								streams.send(file + "\n");
 
 							// Change directory if client sends the "cd" command
 						} else if (inputLine.startsWith("cd")) {
@@ -73,13 +79,13 @@ public class Server {
 							if ((newFolder.exists()) && (newFolder.isDirectory())) {
 								currentFolder = newFolder;
 							} else
-								terminal.send("The folder that you requested does not exist.", clientKey);
+								streams.send("The folder that you requested does not exist.");
 
 							// Close the connection if client sends the "exit" command
 						} else if (inputLine.equals("exit")) {
 							Terminal.print("Client at " + clientSocket.getInetAddress().getHostAddress()
 									+ " has disconnected.\n");
-							terminal.closeStreams();
+							streams.closeStreams();
 							clientSocket.close();
 							break;
 
@@ -93,10 +99,21 @@ public class Server {
 
 							// If the client sends an incorrect command, let them know
 						} else {
-							terminal.send("\'" + inputLine + "\' is not a usable command.", clientKey);
+							streams.send("\'" + inputLine + "\' is not a usable command.");
 						}
 					}
+				} else {
+					// Close the connection if the response to the challenge was incorrect
+					streams.send("You have sent an incorrect password. Closing connection.");
+					streams.closeStreams();
+					clientSocket.close();
 				}
+			} else {
+				// End the connection if the client fails the key exchange
+				Terminal.error("Client at " + clientSocket.getInetAddress()
+						+ " has failed the key exchange. Ending connection.\n");
+				streams.closeStreams();
+				clientSocket.close();
 			}
 		}
 
@@ -104,18 +121,20 @@ public class Server {
 
 	// Constructor
 	public Server() {
-		// Generate a key pair
-		KEYS = Encryptor.generateKeyPair();
-		if (KEYS == null) {
-			Terminal.error("Fatal error while generating keys. Exiting program...");
-			System.exit(1);
-		}
-
 		// TODO: Ask for information via command line arguments
 
-		// Ask for important information
+		// Ask for important server information
 		PORT = Integer.parseInt(Terminal.ask("Enter the port number: "));
 		FOLDER = new File(Terminal.ask("Enter the folder that you would like to share: "));
-		PASSWORD = Terminal.ask("Enter in a password: ");
+
+		// Setup the password
+		try {
+			String s = Terminal.ask("Enter in a password: ");
+			MessageDigest md = MessageDigest.getInstance("SHA-256");
+			password = Base64.getEncoder().encodeToString(md.digest(Base64.getDecoder().decode(s)));
+		} catch (NoSuchAlgorithmException e) {
+			Terminal.error("Error while hashing the password.");
+			Terminal.error(e);
+		}
 	}
 }

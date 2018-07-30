@@ -8,7 +8,7 @@ public class Start {
 		// TODO: Setup command line arguments instead
 		
 		// Ask the user whether they want to setup a server or client
-		int option = Integer.parseInt(Terminal.ask("1.)Create data server.\n2.)Connect to data server.\nPlease select an option: "));
+		int option = Integer.parseInt(Terminal.ask("1.) Create data server.\n2.) Connect to data server.\nPlease select an option: "));
 		try {
 			if (option == 1) { // Setup a server if they choose option one
 				Server s = new Server();
