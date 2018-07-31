@@ -20,6 +20,8 @@ public class Server {
 	// different permissions
 	// TODO: Allow multiple clients to connect to the server at once
 	// TODO: Add server logs
+	// TODO: Add support for vi/vim
+	// TODO: Add mkdir command
 
 	// Starts a connection with the client
 	public void connection() throws IOException, NoSuchAlgorithmException {
@@ -75,7 +77,7 @@ public class Server {
 						Terminal.print(clientSocket.getInetAddress() + "> " + inputLine + "\n");
 						
 						// List the files if client sends the "ls" command
-						if (inputLine.startsWith("ls")) {
+						if (inputLine.startsWith("ls") || inputLine.startsWith("dir")) {
 							// Get the list of folders
 							String[] list = currentFolder.list();
 							
@@ -87,13 +89,15 @@ public class Server {
 								streams.send(file + "\n");
 							
 							// TODO: Indicate which items are files and which items are folders
+							// TODO: Be able to display the output of ls -la by default
 
 							// Change directory if client sends the "cd" command
 						} else if (inputLine.startsWith("cd")) {
 							// TODO: Prevent the client from accessing folders he is not supposed to access
-							File newFolder = new File(currentFolder.getAbsolutePath() + inputLine.split(" ")[1]);
+							File newFolder = new File(currentFolder.getAbsolutePath() + "/" + inputLine.split(" ")[1]);
 							if ((newFolder.exists()) && (newFolder.isDirectory())) {
 								currentFolder = newFolder;
+								streams.send("Changed to /" + inputLine.split(" ")[1] + " directory.");
 							} else
 								streams.send("The folder that you requested does not exist.");
 

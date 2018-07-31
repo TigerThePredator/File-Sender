@@ -23,8 +23,8 @@ public class Client {
 	// Used to send commands to the server
 	public void commandLine() {
 		// Confirm that you have successfully connected to the server
-		Terminal.confirm("Successfully connected to server.\n");
-		Terminal.confirm("You should now be able to type in commands :)\n");
+		Terminal.confirm("\nSuccessfully connected to server.");
+		Terminal.confirm("You should now be able to type in commands :)");
 
 		// Loop until the client closes the connection
 		boolean exit = false;
@@ -42,8 +42,8 @@ public class Client {
 				exit = true;
 				Terminal.close();
 				streams.closeStreams();
-			// If the client sends the "ls" command, print out a list of files and folders
-			} else if(command.startsWith("ls")) {
+			// If the client sends the "ls" or "dir" command, print out a list of files and folders
+			} else if(command.startsWith("ls") || command.startsWith("dir")) {
 				streams.send(command);
 				int numberOfFiles = Integer.parseInt(streams.receive());
 				for(int x = 0; x < numberOfFiles; x++)
@@ -58,7 +58,7 @@ public class Client {
 			// If the client sends the "cd" command, change the directory
 			} else if(command.startsWith("cd")) {
 				streams.send(command);
-				// TODO: Figure out why there is an error with the cd command
+				Terminal.print(streams.receive() + "\n");
 			// Else, state that the client did not send a usable command
 			} else {
 				Terminal.print("\'" + command + "\' is not a usable command.\n");
@@ -124,7 +124,7 @@ public class Client {
 				// If the server did not state whether the answer is correct or not, close the
 				// connection
 				String challengeResponse = streams.receive();
-				Terminal.print(challengeResponse + "\n");
+				Terminal.print(challengeResponse);
 				if (!challengeResponse.equals("Correct password.")) {
 					streams.closeStreams();
 					Terminal.close();
