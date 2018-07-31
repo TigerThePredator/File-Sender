@@ -13,12 +13,13 @@ import java.util.Random;
 public class Server {
 	private final int PORT; // Port that the server resides on
 	private final File FOLDER; // Folder that everyone is supposed to be able to access
-	private String password; // Password to enter the server. Saved as a SHA256 hash
+	private String passwordHash; // Password to enter the server. Saved as a SHA256 hash
 
 	// TODO: Store password as a hash
 	// TODO: Add different groups and users, and allow the server admins to give
 	// different permissions
 	// TODO: Allow multiple clients to connect to the server at once
+	// TODO: Add server logs
 
 	// Starts a connection with the client
 	public void connection() throws IOException, NoSuchAlgorithmException {
@@ -32,11 +33,10 @@ public class Server {
 			Terminal.print("Waiting for connection...\n");
 			Socket clientSocket = serverSocket.accept();
 			Streams streams = new Streams(clientSocket);
-			Terminal.confirm("Client connected from " + clientSocket.getInetAddress() + ".");
+			Terminal.confirm("Setting up communications with " + clientSocket.getInetAddress() + ".");
 
 			// Conduct a key exchange
 			if (streams.keyExchange()) {
-				Terminal.confirm("Setting up communications with " + clientSocket.getInetAddress() + ".");
 
 				// The server will send a random string with length 10 to the client,
 				// and the client should respond with SHA256(SHA256(random string) +
@@ -57,21 +57,36 @@ public class Server {
 				String challengeHash = Base64.getEncoder()
 						.encodeToString(digest.digest(challenge.getBytes(StandardCharsets.UTF_8)));
 				String answer = Base64.getEncoder()
-						.encodeToString(digest.digest((challengeHash + password).getBytes(StandardCharsets.UTF_8)));
+						.encodeToString(digest.digest((challengeHash + passwordHash).getBytes(StandardCharsets.UTF_8)));
 
 				// Check if the client sent the correct answer
-				if (answer == streams.receive()) {
+				if (answer.equals(streams.receive())) {
 					// Tell the client that they have successfully connected
-					streams.send("Correct.");
+					streams.send("Correct password.");
+					
+					// Print this on the server
+					Terminal.confirm("Client connected from " + clientSocket.getInetAddress() + ".");
 					
 					// Process the client's commands as he sends them
 					File currentFolder = FOLDER;
 					String inputLine;
 					while ((inputLine = streams.receive()) != null) {
+						// Print out what the client said
+						Terminal.print(clientSocket.getInetAddress() + "> " + inputLine + "\n");
+						
 						// List the files if client sends the "ls" command
 						if (inputLine.startsWith("ls")) {
-							for (String file : currentFolder.list())
+							// Get the list of folders
+							String[] list = currentFolder.list();
+							
+							// Send the length of the list
+							streams.send(list.length + "");
+							
+							// Send each file/folder in the list
+							for (String file : list)
 								streams.send(file + "\n");
+							
+							// TODO: Indicate which items are files and which items are folders
 
 							// Change directory if client sends the "cd" command
 						} else if (inputLine.startsWith("cd")) {
@@ -83,7 +98,7 @@ public class Server {
 								streams.send("The folder that you requested does not exist.");
 
 							// Close the connection if client sends the "exit" command
-						} else if (inputLine.equals("exit")) {
+						} else if (inputLine.startsWith("exit")) {
 							Terminal.print("Client at " + clientSocket.getInetAddress().getHostAddress()
 									+ " has disconnected.\n");
 							streams.closeStreams();
@@ -95,24 +110,19 @@ public class Server {
 							// TODO: Finish this
 
 							// Send a list of commands if the client sends the "help" command
-						} else if (inputLine.startsWith("help")) {
-							// TODO: List commands
-
-							// If the client sends an incorrect command, let them know
-						} else {
-							streams.send("\'" + inputLine + "\' is not a usable command.");
 						}
 					}
 				} else {
 					// Close the connection if the response to the challenge was incorrect
+					Terminal.print(clientSocket.getInetAddress() + " has sent an incorrect password. Closing connection.");
 					streams.send("You have sent an incorrect password. Closing connection.");
 					streams.closeStreams();
 					clientSocket.close();
 				}
 			} else {
 				// End the connection if the client fails the key exchange
-				Terminal.error("Client at " + clientSocket.getInetAddress()
-						+ " has failed the key exchange. Ending connection.\n");
+				Terminal.print("Client at " + clientSocket.getInetAddress()
+						+ " has failed the key exchange. Closing connection.\n");
 				streams.closeStreams();
 				clientSocket.close();
 			}
@@ -130,9 +140,9 @@ public class Server {
 
 		// Setup the password
 		try {
-			String s = Terminal.ask("Enter in a password: ");
+			String password = Terminal.ask("Enter in a password: ");
 			MessageDigest md = MessageDigest.getInstance("SHA-256");
-			password = Base64.getEncoder().encodeToString(md.digest(s.getBytes(StandardCharsets.UTF_8)));
+			passwordHash = Base64.getEncoder().encodeToString(md.digest(password.getBytes(StandardCharsets.UTF_8)));
 		} catch (NoSuchAlgorithmException e) {
 			Terminal.error("Error while hashing the password.");
 			Terminal.error(e);

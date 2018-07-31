@@ -4,12 +4,10 @@ import java.io.IOException;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
-import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
 import java.util.Base64;
 
 import javax.crypto.BadPaddingException;
@@ -25,15 +23,53 @@ public class Client {
 	// Used to send commands to the server
 	public void commandLine() {
 		// Confirm that you have successfully connected to the server
-		Terminal.confirm("Successfully connected to server.");
-		
+		Terminal.confirm("Successfully connected to server.\n");
+		Terminal.confirm("You should now be able to type in commands :)\n");
+
 		// Loop until the client closes the connection
 		boolean exit = false;
+
+		// Loop until the client closes the connection
 		while (!exit) {
-			// Client should be able to type in a command
+			// Client should be able to send in commands
 			Terminal.print("> ");
-			String command = Terminal.scanLine();
+			String command = Terminal.scanLine().trim();
+
+			// If the client sends the "exit" command, close the connection
+			if (command.startsWith("exit")) {
+				streams.send(command);
+				Terminal.print("Closing connection.\n");
+				exit = true;
+				Terminal.close();
+				streams.closeStreams();
+			// If the client sends the "ls" command, print out a list of files and folders
+			} else if(command.startsWith("ls")) {
+				streams.send(command);
+				int numberOfFiles = Integer.parseInt(streams.receive());
+				for(int x = 0; x < numberOfFiles; x++)
+					Terminal.print(streams.receive());
+				
+			// Do nothing if the user typed in nothing
+			} else if(command.trim().equals("")) {
+				// Do nothing
+			// If the client sends the "help" command, print out a list of commands
+			} else if(command.startsWith("help")) {
+				// TODO: Print out a list of commands
+			// If the client sends the "cd" command, change the directory
+			} else if(command.startsWith("cd")) {
+				streams.send(command);
+				// TODO: Figure out why there is an error with the cd command
+			// Else, state that the client did not send a usable command
+			} else {
+				Terminal.print("\'" + command + "\' is not a usable command.\n");
+			}
 		}
+	}
+
+	// Used to print out received data
+	// This should be ran on a separate thread
+	public void printReceived() {
+
 	}
 
 	// Constructor
@@ -84,9 +120,12 @@ public class Client {
 				String answer = Base64.getEncoder()
 						.encodeToString(digest.digest((challengeHash + passwordHash).getBytes(StandardCharsets.UTF_8)));
 				streams.send(answer);
-				
-				// If the server did not state whether the answer is correct or not, close the connection
-				if(!streams.receive().equals("Correct.")) {
+
+				// If the server did not state whether the answer is correct or not, close the
+				// connection
+				String challengeResponse = streams.receive();
+				Terminal.print(challengeResponse + "\n");
+				if (!challengeResponse.equals("Correct password.")) {
 					streams.closeStreams();
 					Terminal.close();
 					System.exit(0);

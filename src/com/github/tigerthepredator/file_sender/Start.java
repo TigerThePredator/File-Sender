@@ -15,7 +15,6 @@ public class Start {
 				s.connection();
 			} else if (option == 2) { // Setup a client if they choose option two
 				Client c = new Client();
-				Terminal.print("You should now be able to type in commands :)\n");
 				c.commandLine();
 			}
 		} catch (java.io.IOException | NoSuchAlgorithmException e) {

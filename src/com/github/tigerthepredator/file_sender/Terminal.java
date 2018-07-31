@@ -8,9 +8,9 @@ import java.util.Scanner;
 public class Terminal {
 	private static final Scanner SCAN = new Scanner(System.in); // Scanner for scanning command line
 
-	// Print a line in white color
+	// Print a line in blue color
 	public static void print(String line) {
-		System.out.print("\033[37m" + line);
+		System.out.print("\033[36m" + line);
 	}
 
 	// Print a line in green color
@@ -31,7 +31,7 @@ public class Terminal {
 		System.out.println("\033[31m" + result.toString());
 	}
 
-	// Print a line in blue color
+	// Print a question in blue color
 	public static String ask(String line) {
 		System.out.print("\033[36m" + line);
 		return scanLine();
