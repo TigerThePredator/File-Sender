@@ -78,11 +78,11 @@ public class Client {
 				String challenge = streams.receive();
 				MessageDigest digest = MessageDigest.getInstance("SHA-256");
 				String challengeHash = Base64.getEncoder()
-						.encodeToString(digest.digest(Base64.getDecoder().decode(challenge)));
+						.encodeToString(digest.digest(challenge.getBytes(StandardCharsets.UTF_8)));
 				String passwordHash = Base64.getEncoder()
-						.encodeToString(digest.digest(Base64.getDecoder().decode(password)));
+						.encodeToString(digest.digest(password.getBytes(StandardCharsets.UTF_8)));
 				String answer = Base64.getEncoder()
-						.encodeToString(digest.digest(Base64.getDecoder().decode(challengeHash + passwordHash)));
+						.encodeToString(digest.digest((challengeHash + passwordHash).getBytes(StandardCharsets.UTF_8)));
 				streams.send(answer);
 				
 				// If the server did not state whether the answer is correct or not, close the connection

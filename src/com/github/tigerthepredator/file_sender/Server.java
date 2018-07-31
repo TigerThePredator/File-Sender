@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
@@ -54,9 +55,9 @@ public class Server {
 				// Develop the correct answer to the challenge
 				MessageDigest digest = MessageDigest.getInstance("SHA-256");
 				String challengeHash = Base64.getEncoder()
-						.encodeToString(digest.digest(Base64.getDecoder().decode(challenge)));
+						.encodeToString(digest.digest(challenge.getBytes(StandardCharsets.UTF_8)));
 				String answer = Base64.getEncoder()
-						.encodeToString(digest.digest(Base64.getDecoder().decode(challengeHash + password)));
+						.encodeToString(digest.digest((challengeHash + password).getBytes(StandardCharsets.UTF_8)));
 
 				// Check if the client sent the correct answer
 				if (answer == streams.receive()) {
@@ -131,7 +132,7 @@ public class Server {
 		try {
 			String s = Terminal.ask("Enter in a password: ");
 			MessageDigest md = MessageDigest.getInstance("SHA-256");
-			password = Base64.getEncoder().encodeToString(md.digest(Base64.getDecoder().decode(s)));
+			password = Base64.getEncoder().encodeToString(md.digest(s.getBytes(StandardCharsets.UTF_8)));
 		} catch (NoSuchAlgorithmException e) {
 			Terminal.error("Error while hashing the password.");
 			Terminal.error(e);
