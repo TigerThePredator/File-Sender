@@ -25,7 +25,7 @@ public class Client {
     // Used to send commands to the server
     public void commandLine() {
         // Confirm that you have successfully connected to the server
-        Logger.print("\nSuccessfully connected to server.\nYou should now be able to type in commands :)\n");
+        Logger.print("Successfully connected to " + SOCKET.getInetAddress() + ".\nYou should now be able to type in commands :)\n");
 
         // Loop until the client closes the connection
         boolean exit = false;
@@ -35,6 +35,7 @@ public class Client {
             // Client should be able to send in commands
             Logger.print("> ");
             String command = Logger.scanLine().trim();
+            Logger.log("Sent command to " + SOCKET.getInetAddress() + ":\n" + command);
 
             if (command.startsWith("exit")) {
                 // If the client sends the "exit" command, close the connection
@@ -63,10 +64,10 @@ public class Client {
                 // If the client sends the "help" command, print out a list of commands
                 // TODO: Add all of the new commands
                 Logger.print("Here are a list of commands:\n");
-                Logger.print("- ls: Used to list files in current directory.");
-                Logger.print("- dir: Same as ls.");
-                Logger.print("- cd: Change directory.");
-                Logger.print("- exit: Close the connection");
+                Logger.print("- ls: Used to list files in current directory.\n");
+                Logger.print("- dir: Same as ls.\n");
+                Logger.print("- cd: Change directory.\n");
+                Logger.print("- exit: Close the connection.\n");
             } else {
                 // Else state that the client did not use a usable command
                 Logger.print("\"" + command + "\" is not a usable command.\n");
@@ -132,7 +133,7 @@ public class Client {
                 // If the server did not state whether the answer is correct or not, close the
                 // connection
                 String challengeResponse = streams.receive();
-                Logger.print(challengeResponse);
+                Logger.print(challengeResponse + "\n");
                 if (!challengeResponse.equals("Correct password.")) {
                     streams.closeStreams();
                     Logger.close();

@@ -19,10 +19,11 @@ public class Server {
     // TODO: Add different groups and users, and allow the server admins to give
     // different permissions
     // TODO: Allow multiple clients to connect to the server at once
-    // TODO: Add server logs
     // TODO: Add support for vi/vim
     // TODO: Add mkdir command
     // TODO: Add cat command
+    // TODO: Add dl command
+    // TODO: Add rm command
 
     // Starts a connection with the client
     public void connection() throws IOException, NoSuchAlgorithmException {
