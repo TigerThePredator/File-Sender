@@ -1,0 +1,2 @@
+# File-Sender
+This is a small Java project that I am currently working on. This program will allow you to access a data pool of files on a server through a client. The client should be able to send in requests to the server asking for data, and the server should be able to validate those requests and submit the data to the client. It is based off of the FTP protocol. The program is written using the Eclipse IDE, so you should be able to easily add this as a new project in eclipse or import it as another project in another IDE.
