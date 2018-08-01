@@ -12,7 +12,7 @@ import java.util.Random;
 
 public class Server {
     private final int PORT; // Port that the server resides on
-    private final File FOLDER; // Folder that everyone is supposed to be able to access
+    private final File FOLDER; // Top-level directory that everyone is supposed to be able to access
     private String passwordHash; // Password to enter the server. Saved as a SHA256 hash
 
     // TODO: Store password as a hash
@@ -104,7 +104,10 @@ public class Server {
                             String[] split = inputLine.split(" ");
                             if (split.length > 1) {
                                 File newFolder = new File(currentFolder.getAbsolutePath() + "/" + split[1]);
-                                if ((newFolder.exists()) && (newFolder.isDirectory())) {
+                                // Check if the directory exists
+                                if ((newFolder.exists()) && (newFolder.isDirectory())
+                                // This last conditional is checked to prevent directory traversal attacks
+                                        && isSubDirectory(FOLDER, newFolder)) {
                                     currentFolder = newFolder;
                                     streams.send("Changed to /" + split[1] + " directory.");
                                 } else
@@ -143,6 +146,23 @@ public class Server {
             }
         }
 
+    }
+
+    // Checks if a file/folder is a subdirectory of another folder
+    // Copied from
+    // http://www.java2s.com/Tutorial/Java/0180__File/Checkswhetherthechilddirectoryisasubdirectoryofthebasedirectory.htm
+    public boolean isSubDirectory(File base, File child) throws IOException {
+        base = base.getCanonicalFile();
+        child = child.getCanonicalFile();
+
+        File parentFile = child;
+        while (parentFile != null) {
+            if (base.equals(parentFile)) {
+                return true;
+            }
+            parentFile = parentFile.getParentFile();
+        }
+        return false;
     }
 
     // Constructor
