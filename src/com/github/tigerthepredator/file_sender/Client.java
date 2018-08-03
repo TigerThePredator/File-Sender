@@ -21,11 +21,12 @@ public class Client {
     private Streams streams; // The terminal used to send messages
 
     // TODO: Separate the server and client projects
-    
+
     // Used to send commands to the server
     public void commandLine() {
         // Confirm that you have successfully connected to the server
-        Logger.print("Successfully connected to " + SOCKET.getInetAddress() + ".\nYou should now be able to type in commands :)\n");
+        Logger.print("Successfully connected to " + SOCKET.getInetAddress()
+                + ".\nYou should now be able to type in commands :)\n");
 
         // Loop until the client closes the connection
         boolean exit = false;
@@ -35,7 +36,7 @@ public class Client {
             // Client should be able to send in commands
             Logger.print("> ");
             String command = Logger.scanLine().trim();
-            Logger.log("Sent command to " + SOCKET.getInetAddress() + ":\n" + command);
+            Logger.log("Sent command to " + SOCKET.getInetAddress() + ":\n\"" + command + "\"");
 
             if (command.startsWith("exit")) {
                 // If the client sends the "exit" command, close the connection
@@ -58,21 +59,33 @@ public class Client {
                 // If the client sends the "cd" command, change the directory
                 streams.send(command);
                 Logger.print(streams.receive() + "\n");
-            } else if(command.startsWith("mkdir")) {
+            } else if (command.startsWith("mkdir")) {
                 // If the client sends the "mkdir" command, make a new directory
                 streams.send(command);
                 Logger.print(streams.receive() + "\n");
+            } else if (command.startsWith("rm") || command.startsWith("del")) {
+                // If the client sends the rm/del command, delete a file/directory
+                
+                // First send the command
+                streams.send(command);
+                
+                // Now figure out how many lines we're supposed to receive
+                int lines = Integer.parseInt(streams.receive());
+                
+                // Loop through each received line and print every single one out
+                String toPrint = "";
+                for(int i = 0; i < lines; i++)
+                    toPrint += streams.receive();
+                Logger.print(toPrint);
             } else if (command.trim().equals("")) {
                 // Do nothing
             } else if (command.startsWith("help")) {
                 // If the client sends the "help" command, print out a list of commands
-                // TODO: Add all of the new commands
-                Logger.print("Here are a list of commands:\n");
-                Logger.print("- ls: Used to list files in current directory.\n");
-                Logger.print("- dir: Same as ls.\n");
-                Logger.print("- mkdir: Creates a new directory.\n");
-                Logger.print("- cd: Change directory.\n");
-                Logger.print("- exit: Close the connection.\n");
+                String toPrint = "Here are a list of commands:\n" + "- ls: Used to list files in current directory.\n"
+                        + "- dir: Same as ls.\n" + "- mkdir: Creates a new directory.\n" + "- cd: Change directory.\n"
+                        + "- del: Deletes a file or directory.\n" + "- rm: Same as del."
+                        + "- exit: Close the connection.\n";
+                Logger.print(toPrint);
             } else {
                 // Else state that the client did not use a usable command
                 Logger.print("\"" + command + "\" is not a usable command.\n");

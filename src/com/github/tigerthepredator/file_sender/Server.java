@@ -19,7 +19,6 @@ public class Server {
     // different permissions
     // TODO: Allow multiple clients to connect to the server at once
     // TODO: Add support for vi/vim
-    // TODO: Add mkdir command
     // TODO: Add cat command
     // TODO: Add dl command
     // TODO: Add rm command
@@ -77,7 +76,8 @@ public class Server {
                     while ((inputLine = streams.receive()) != null) {
                         // Print out what the client said
                         Logger.print(clientSocket.getInetAddress() + "> " + inputLine + "\n");
-                        Logger.log(inputLine + " command sent from " + clientSocket.getInetAddress() + ".");
+                        Logger.log(
+                                "Command received from " + clientSocket.getInetAddress() + ":\n\"" + inputLine + "\"");
 
                         if (inputLine.startsWith("ls") || inputLine.startsWith("dir")) {
                             // List the files if client sends the "ls" command
@@ -85,12 +85,14 @@ public class Server {
                             // Get the list of folders
                             String[] list = currentFolder.list();
 
-                            // Send the length of the list
-                            streams.send(list.length + "");
+                            if (list != null) {
+                                // Send the length of the list
+                                streams.send(list.length + "");
 
-                            // Send each file/folder in the list
-                            for (String file : list)
-                                streams.send(file + "\n");
+                                // Send each file/folder in the list
+                                for (String file : list)
+                                    streams.send(file + "\n");
+                            }
 
                             // TODO: Indicate which items are files and which items are folders
                             // TODO: Be able to display the output of ls -la by default
@@ -101,35 +103,81 @@ public class Server {
                             // TODO: Allow access to folders with spaces in their names
                             String[] split = inputLine.split(" ");
                             if (split.length > 1) {
-                                File newFolder = new File(currentFolder.getAbsolutePath() + "/" + split[1]);
-                                // Check if the directory exists
-                                if ((newFolder.exists()) && (newFolder.isDirectory())
-                                // This last conditional is checked to prevent directory traversal attacks
-                                        && isSubDirectory(FOLDER, newFolder)) {
-                                    currentFolder = newFolder;
-                                    streams.send("Changed to /" + split[1] + " directory.");
-                                } else
-                                    streams.send("The folder that you requested does not exist.");
+                                if (split[1].equals("..")) {
+                                    // If the user types in "..", go to the parent directory
+                                    File newFolder = currentFolder.getParentFile();
+                                    
+                                    // Check for directory traversal attacks
+                                    if (isSubDirectory(FOLDER, newFolder)) {
+                                        // Switch the folder
+                                        currentFolder = newFolder;
+                                        streams.send("Changed to parent directory.");
+                                    } else
+                                        streams.send("The folder that you requested does not exist.");
+                                } else {
+                                    // Else if the user types in any other subdirectory, go to that subdirectory
+                                    File newFolder = new File(currentFolder.getAbsolutePath() + "/" + split[1]);
+                                    // Check if the directory exists
+                                    if ((newFolder.exists()) && (newFolder.isDirectory())
+                                    // This last conditional is checked to prevent directory traversal attacks
+                                            && isSubDirectory(FOLDER, newFolder)) {
+                                        currentFolder = newFolder;
+                                        streams.send("Changed to /" + split[1] + " directory.");
+                                    } else
+                                        streams.send("The folder that you requested does not exist.");
+                                }
                             } else {
                                 streams.send("You must enter in a folder name.");
                             }
-                        } else if (inputLine.startsWith("mkdir")) { 
+                        } else if (inputLine.startsWith("mkdir")) {
                             // Make a new directory if the user sends this command
                             // TODO: Allow the creation of folders with spaces in their names
-                            
+
                             // Split the line to get the folder name
                             String[] split = inputLine.split(" ");
                             if (split.length > 1) {
                                 // Create the new folder
                                 File newFolder = new File(currentFolder.getAbsolutePath() + "/" + split[1]);
-                                if(newFolder.mkdirs()) {
+                                if (newFolder.mkdirs()) {
                                     streams.send("Successfully created " + split[1] + " directory.");
+                                    Logger.log("System change:\n" + newFolder.getAbsolutePath()
+                                            + " directory has been created.");
                                 } else {
                                     streams.send("Error occurred while generating directory.");
                                 }
                             } else {
                                 streams.send("Directory must have a name.");
                             }
+                        } else if (inputLine.startsWith("rm") || inputLine.startsWith("del")) {
+                            // Delete a file/folder
+
+                            // Get a list of all the files that will be deleted
+                            String files[] = inputLine.split(" ");
+
+                            // Everything that will be sent to the client
+                            String toSend = "";
+
+                            // Loop through each file and delete each one
+                            // i starts at 1 because the zeroith input is the actual "rm" or "del" command
+                            for (int i = 1; i < files.length; i++) {
+                                // Get the file
+                                File toDel = new File(currentFolder.getAbsolutePath() + "/" + files[i]);
+
+                                // Delete the file if it exists
+                                if (toDel.exists())
+                                    if (toDel.delete()) {
+                                        toSend += "System has deleted " + toDel.getName() + ".\n";
+                                        Logger.log("System change:\n" + toDel.getAbsolutePath() + " has been deleted.");
+                                    } else
+                                        toSend += toDel.getName() + " is not a file or directory.\n";
+                            }
+
+                            // First send how many lines will be sent
+                            // TODO: Figure out why the user cannot delete multiple items at once
+                            streams.send(toSend.length() - toSend.replace("\n", "").length() + "");
+
+                            // Now send everything
+                            streams.send(toSend);
                         } else if (inputLine.startsWith("exit")) {
                             // Close the connection if client sends the "exit" command
 
@@ -139,9 +187,6 @@ public class Server {
                             clientSocket.close();
                             break;
 
-                        } else if (inputLine.startsWith("dl")) {
-                            // Send files for the client to download if the client sends the "dl" command
-                            // TODO: Finish this
                         }
                     }
                 } else {
