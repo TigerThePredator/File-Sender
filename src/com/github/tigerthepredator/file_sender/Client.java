@@ -58,6 +58,10 @@ public class Client {
                 // If the client sends the "cd" command, change the directory
                 streams.send(command);
                 Logger.print(streams.receive() + "\n");
+            } else if(command.startsWith("mkdir")) {
+                // If the client sends the "mkdir" command, make a new directory
+                streams.send(command);
+                Logger.print(streams.receive() + "\n");
             } else if (command.trim().equals("")) {
                 // Do nothing
             } else if (command.startsWith("help")) {
@@ -66,6 +70,7 @@ public class Client {
                 Logger.print("Here are a list of commands:\n");
                 Logger.print("- ls: Used to list files in current directory.\n");
                 Logger.print("- dir: Same as ls.\n");
+                Logger.print("- mkdir: Creates a new directory.\n");
                 Logger.print("- cd: Change directory.\n");
                 Logger.print("- exit: Close the connection.\n");
             } else {

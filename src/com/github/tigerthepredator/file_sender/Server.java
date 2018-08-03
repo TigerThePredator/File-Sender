@@ -15,7 +15,6 @@ public class Server {
     private final File FOLDER; // Top-level directory that everyone is supposed to be able to access
     private String passwordHash; // Password to enter the server. Saved as a SHA256 hash
 
-    // TODO: Store password as a hash
     // TODO: Add different groups and users, and allow the server admins to give
     // different permissions
     // TODO: Allow multiple clients to connect to the server at once
@@ -99,7 +98,6 @@ public class Server {
                         } else if (inputLine.startsWith("cd")) {
                             // Change directory if client sends the "cd" command
 
-                            // TODO: Prevent the client from accessing folders he is not supposed to access
                             // TODO: Allow access to folders with spaces in their names
                             String[] split = inputLine.split(" ");
                             if (split.length > 1) {
@@ -114,6 +112,23 @@ public class Server {
                                     streams.send("The folder that you requested does not exist.");
                             } else {
                                 streams.send("You must enter in a folder name.");
+                            }
+                        } else if (inputLine.startsWith("mkdir")) { 
+                            // Make a new directory if the user sends this command
+                            // TODO: Allow the creation of folders with spaces in their names
+                            
+                            // Split the line to get the folder name
+                            String[] split = inputLine.split(" ");
+                            if (split.length > 1) {
+                                // Create the new folder
+                                File newFolder = new File(currentFolder.getAbsolutePath() + "/" + split[1]);
+                                if(newFolder.mkdirs()) {
+                                    streams.send("Successfully created " + split[1] + " directory.");
+                                } else {
+                                    streams.send("Error occurred while generating directory.");
+                                }
+                            } else {
+                                streams.send("Directory must have a name.");
                             }
                         } else if (inputLine.startsWith("exit")) {
                             // Close the connection if client sends the "exit" command
