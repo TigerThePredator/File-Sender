@@ -1,7 +1,10 @@
 package com.github.tigerthepredator.file_sender;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -76,9 +79,9 @@ public class Server {
                         String inputLine;
                         while ((inputLine = streams.receive()) != null) {
                             // Print out what the client said
-                            Logger.print(clientSocket.getInetAddress() + "> " + inputLine + "\n");
                             Logger.log("Command received from " + clientSocket.getInetAddress() + ":\n\"" + inputLine
                                     + "\"");
+                            Logger.print(clientSocket.getInetAddress() + "> " + inputLine + "\n");
 
                             if (inputLine.startsWith("ls") || inputLine.startsWith("dir")) {
                                 // List the files if client sends the "ls" command
@@ -209,6 +212,46 @@ public class Server {
                                 } else {
                                     streams.send("Unable to download " + newFile.getName());
                                     Logger.error("Unable to create " + newFile.getAbsolutePath());
+                                }
+                            } else if (inputLine.startsWith("cat")) {
+                                // If the client uses the "cat" command, display the contents of a file
+
+                                // Get the file that the client wants to read
+                                String filename = currentFolder.getAbsolutePath() + "/" + inputLine.split(" ")[1];
+                                File toRead = new File(filename);
+                                // TODO: Be able to read files with spaces
+
+                                // Check whether the file the client sends is actually a real file
+                                if (toRead.exists() && toRead.isFile()) {
+                                    // Create the input streams and reader
+                                    FileInputStream fin = new FileInputStream(toRead);
+                                    BufferedReader reader = new BufferedReader(new InputStreamReader(fin));
+
+                                    // Count how many lines there are
+                                    int lines = 0;
+                                    while (reader.readLine() != null)
+                                        lines++;
+
+                                    // Send the amount of lines to the client
+                                    streams.send(lines + "");
+
+                                    // Reset the reader (this is necessary because we have already reached the end
+                                    // of the file)
+                                    fin.getChannel().position(0);
+                                    reader = new BufferedReader(new InputStreamReader(fin));
+
+                                    // Send each line of the file to the client
+                                    String line;
+                                    while ((line = reader.readLine()) != null)
+                                        streams.send(line);
+
+                                    // Close the reader and input stream
+                                    fin.close();
+                                    reader.close();
+                                } else {
+                                    // Tell the client that the file does not exist
+                                    streams.send("1");
+                                    streams.send("File " + filename + " does not exist.");
                                 }
                             } else if (inputLine.startsWith("exit")) {
                                 // Close the connection if client sends the "exit" command

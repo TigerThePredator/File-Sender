@@ -82,39 +82,40 @@ public class Client {
                 for (int i = 0; i < lines; i++)
                     toPrint += streams.receive();
                 Logger.print(toPrint);
-            } else if (command.startsWith("send")) { 
+            } else if (command.startsWith("send")) {
                 // If the client sends the "send" command, send a file to the server
                 String filename = command.split(" ")[1];
-                
+
                 // Get the file and check whether it exists or not
                 File f = new File(filename);
-                if(f.exists()) {
-                    try {                        
+                if (f.exists()) {
+                    try {
                         // Create the input streams and reader
                         FileInputStream fin = new FileInputStream(f);
                         BufferedReader reader = new BufferedReader(new InputStreamReader(fin));
-                        
+
                         // Count how many lines there are
                         int lines = 0;
-                        while(reader.readLine() != null)
+                        while (reader.readLine() != null)
                             lines++;
-                        
+
                         // Send the "send [lines]" command to the server
                         streams.send("send " + lines + " " + f.getName());
-                        
-                        // Reset the reader (this is necessary because we have already reached the end of the file)
+
+                        // Reset the reader (this is necessary because we have already reached the end
+                        // of the file)
                         fin.getChannel().position(0);
                         reader = new BufferedReader(new InputStreamReader(fin));
-                        
+
                         // Send each line of the file to the server
                         String line;
-                        while((line = reader.readLine()) != null)
+                        while ((line = reader.readLine()) != null)
                             streams.send(line);
-                        
+
                         // Close the reader and input stream
                         fin.close();
                         reader.close();
-                        
+
                         // Wait for the server to reply
                         Logger.print(streams.receive() + "\n");
                     } catch (IOException e) {
@@ -125,14 +126,25 @@ public class Client {
                     // Tell the user that the file does not exist
                     Logger.print("File " + filename + " does not exist.");
                 }
+            } else if (command.startsWith("cat")) {
+                // Send the command to the server
+                streams.send(command);
+                
+                // Receive the amount of lines that will be read
+                int lines = Integer.parseInt(streams.receive());
+                
+                // Read and print out every single line
+                for(int i = 0; i < lines; i++)
+                    Logger.print(streams.receive() + "\n");
             } else if (command.trim().equals("")) {
                 // Do nothing
             } else if (command.startsWith("help")) {
                 // If the client sends the "help" command, print out a list of commands
                 String toPrint = "Here are a list of commands:\n" + "- ls: Used to list files in current directory.\n"
                         + "- dir: Same as ls.\n" + "- mkdir: Creates a new directory.\n" + "- cd: Change directory.\n"
-                        + "- send: sends a file to the server.\n" + "- del: Deletes a file or directory.\n"
-                        + "- rm: Same as del." + "- exit: Close the connection.\n";
+                        + "- send: sends a file to the server.\n" + "- cat: Displays the contents of a file.\n"
+                        + "- del: Deletes a file or directory.\n" + "- rm: Same as del.\n"
+                        + "- exit: Close the connection.\n";
                 Logger.print(toPrint);
             } else {
                 // Else state that the client did not use a usable command
