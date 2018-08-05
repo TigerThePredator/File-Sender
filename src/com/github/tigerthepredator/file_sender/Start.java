@@ -20,7 +20,7 @@ public class Start {
                 c.commandLine();
             }
         } catch (java.io.IOException | NoSuchAlgorithmException e) {
-            Logger.error("Error while running the connection.");
+            Logger.error("Error while running the application.");
             Logger.error(e);
         }
 
