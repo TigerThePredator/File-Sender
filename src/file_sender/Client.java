@@ -1,4 +1,4 @@
-package com.github.tigerthepredator.file_sender;
+package file_sender;
 
 import java.io.BufferedReader;
 import java.io.File;

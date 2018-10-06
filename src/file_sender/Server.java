@@ -1,4 +1,4 @@
-package com.github.tigerthepredator.file_sender;
+package file_sender;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -24,9 +24,7 @@ public class Server {
     // different permissions
     // TODO: Allow multiple clients to connect to the server at once
     // TODO: Add support for vi/vim
-    // TODO: Add cat command
     // TODO: Add dl command
-    // TODO: Add rm command
     // TODO: Add mv command
 
     // Starts a connection with the client
